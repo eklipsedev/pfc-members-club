@@ -12,10 +12,10 @@ const updateOrgUser = functions.https.onCall(async (data, context) => {
     }
 
     // Destructure data from the request
-    const { userId, firstName, lastName, email, phone, userType } = data;
+    const { userId, firstName, lastName, email, phone, locations, userRole } = data;
 
     // Check if required fields are present
-    if (!firstName || !lastName || !email || !userType) {
+    if (!firstName || !lastName || !email || !locations || !userRole) {
       return {
         success: false,
         message: 'Missing required fields',
@@ -25,11 +25,18 @@ const updateOrgUser = functions.https.onCall(async (data, context) => {
     // phone is optional, so it may be empty
     const sanitizedPhone = phone || null;
 
+    // convert comma separated list into array of location references
+    const locationsCollection = getFirestore().collection('locations');
+
+    const locationPaths = locations
+      .split(',')
+      .map((locationId) => locationsCollection.doc(locationId).path);
+
     // Reference to the Firestore users collection
     const usersCollection = getFirestore().collection('users');
 
     // Use a Firestore transaction for atomicity
-    await getFirestore().runTransaction(async (transaction) => {
+    const transactionResult = await getFirestore().runTransaction(async (transaction) => {
       // Read operations
       // Fetch the existing user record
       const userDocRef = usersCollection.doc(userId);
@@ -38,7 +45,9 @@ const updateOrgUser = functions.https.onCall(async (data, context) => {
       if (userSnapshot.exists) {
         const userRecord = await getAuth().getUser(userId);
         const customClaims = userRecord.customClaims;
-        const userTypeClaims = customClaims.userType || [];
+        const userRoleClaims = customClaims.userRole || '';
+
+        console.log(userRoleClaims);
 
         const updatedUserProperties = {
           displayName: `${firstName} ${lastName}`,
@@ -51,9 +60,9 @@ const updateOrgUser = functions.https.onCall(async (data, context) => {
         // Ensure all read operations are completed before moving to write operations
 
         // Set new custom claims if they changed
-        if (userTypeClaims.length && userType !== userTypeClaims[0]) {
+        if (userRole !== userRoleClaims) {
           const newClaims = {
-            userType: [userType],
+            userRole: userRole,
           };
 
           // Update the user with custom claims
@@ -62,23 +71,33 @@ const updateOrgUser = functions.https.onCall(async (data, context) => {
 
         // Data for the new user
         const newUserData = {
+          userId: userId,
           firstName,
           lastName,
           email,
           phone: sanitizedPhone,
-          userType,
+          locations: locationPaths,
+          userRole,
         };
+
+        console.log(newUserData);
 
         // Update user data in Firestore
         transaction.update(userDocRef, newUserData);
 
-        return { success: true, message: `Updated ${firstName} ${lastName} successfully` };
-      }
+        console.log('the document has been updated, the return follows');
 
-      return { success: false, message: 'User not found in Firestore' };
+        return {
+          success: true,
+          userData: newUserData,
+          message: `Updated ${firstName} ${lastName} successfully`,
+        };
+      } else {
+        return { success: false, message: 'User not found in Firestore' };
+      }
     });
 
-    return { success: true, message: 'User updated successfully' };
+    return transactionResult;
   } catch (error) {
     console.error('Error updating user:', error);
     return { success: false, message: error.message };

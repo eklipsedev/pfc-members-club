@@ -12,10 +12,10 @@ const createOrgUser = functions.https.onCall(async (data, context) => {
     }
 
     // Destructure data from the request
-    const { firstName, lastName, email, phone, password, userType } = data;
+    const { firstName, lastName, email, phone, password, locations, userRole } = data;
 
     // Check if required fields are present
-    if (!firstName || !lastName || !email || !password || !userType) {
+    if (!firstName || !lastName || !email || !password || !locations || !userRole) {
       return {
         success: false,
         message: 'Missing required fields',
@@ -25,20 +25,18 @@ const createOrgUser = functions.https.onCall(async (data, context) => {
     // phone is optional, so it may be empty
     const sanitizedPhone = phone || null;
 
+    // convert comma separated list into array of location references
+    const locationsCollection = getFirestore().collection('locations');
+
+    const locationPaths = locations
+      .split(',')
+      .map((locationId) => locationsCollection.doc(locationId).path);
+
     // Reference to the Firestore users collection
     const usersCollection = getFirestore().collection('users');
 
     // Use a Firestore transaction for atomicity
-    const result = await getFirestore().runTransaction(async (transaction) => {
-      // Read operations
-      const userDocSnapshot = await transaction.get(usersCollection.doc(context.auth.uid));
-
-      const organizationId = userDocSnapshot.data().organizationId;
-      const organizationDocRef = getFirestore().doc(`organizations/${organizationId}`);
-      const organizationDocSnapshot = await transaction.get(organizationDocRef);
-
-      // Ensure all read operations are completed before moving to write operations
-
+    const transactionResult = await getFirestore().runTransaction(async (transaction) => {
       // Create the user with Firebase Authentication
       const newUser = await getAuth().createUser({
         email,
@@ -47,43 +45,25 @@ const createOrgUser = functions.https.onCall(async (data, context) => {
 
       // Set custom claims based on userType
       const newClaims = {
-        userType: [userType],
+        userRole: userRole,
       };
 
       // Update the user with custom claims
       await getAuth().setCustomUserClaims(newUser.uid, newClaims);
 
-      // Data for the new user
+      // Assign values to newUserData
       const newUserData = {
-        id: newUser.uid,
+        userId: newUser.uid,
         firstName,
         lastName,
         email,
         phone: sanitizedPhone,
-        organizationId: organizationId,
-        userType,
+        locations: locationPaths, // will be an array of location references
+        userRole,
       };
 
       // Set user data in Firestore
       transaction.set(usersCollection.doc(newUser.uid), newUserData);
-
-      if (organizationDocSnapshot.exists) {
-        const organizationData = organizationDocSnapshot.data();
-
-        // Create a reference to the new user's document
-        const newUserRef = usersCollection.doc(newUser.uid);
-
-        // Update the users array with the reference to the new user's document
-        transaction.update(organizationDocRef, {
-          users: [...(organizationData.users || []), newUserRef],
-        });
-      } else {
-        // Handle the case where the organization document does not exist
-        return {
-          success: false,
-          message: 'Organization document not found',
-        };
-      }
 
       return {
         success: true,
@@ -92,7 +72,7 @@ const createOrgUser = functions.https.onCall(async (data, context) => {
       };
     });
 
-    return result;
+    return transactionResult;
   } catch (error) {
     return { success: false, message: `Something went wrong: ${error.message}` };
   }

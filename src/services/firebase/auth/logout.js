@@ -1,22 +1,34 @@
 import { signOut } from 'firebase/auth';
 
+import { setUser, setUserClaims, setUserData, setUserId, setUserToken } from '../../../globals';
+import { getUser } from '../../../globals';
 import { displaySuccess } from '../../../utils/formUtils';
 import { auth } from '../firebase-config';
-import { getCurrentUser } from '../utils';
 
 export const logout = async () => {
   try {
-    const user = await getCurrentUser();
+    const user = getUser();
 
     if (user) {
-      await signOut(auth);
+      try {
+        await signOut(auth);
 
-      localStorage.clear();
+        setUser(null);
+        setUserId(null);
+        setUserToken(null);
+        setUserData(null);
+        setUserClaims(null);
 
-      window.location.href = '/?logout=true';
+        localStorage.clear();
+
+        return { success: true, message: 'Successfully logged out' };
+      } catch (error) {
+        return { success: false, message: error.message };
+      }
     }
+    return { success: false, message: 'User is not authenticated' };
   } catch (error) {
-    return { success: false, message: error.message };
+    return { success: false, message: error };
   }
 };
 

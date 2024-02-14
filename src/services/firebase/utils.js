@@ -1,60 +1,173 @@
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 
+import {
+  getUserClaims,
+  getUserId,
+  setUser,
+  setUserClaims,
+  setUserData,
+  setUserId,
+  setUserToken,
+} from '../../globals';
 import { displayError } from '../../utils/formUtils';
 import { auth, firestore } from './firebase-config';
 
-let user;
-let userId;
-
 // Utility function to get the current user
 export const getCurrentUser = () => {
-  return new Promise((resolve, reject) => {
-    onAuthStateChanged(
+  return new Promise(async (resolve, reject) => {
+    const unsubscribe = onAuthStateChanged(
       auth,
-      (authUser) => {
-        if (authUser) {
-          user = authUser;
-          userId = authUser.uid;
-          resolve(user);
-        } else {
-          localStorage.removeItem('user');
-          localStorage.removeItem('userData');
-          // redirect to login page, if not already on login page
-          if (
-            window.location.pathname.startsWith('/members/') &&
-            window.location.pathname !== '/login'
-          ) {
-            window.location.href = '/login';
-          }
+      async (authUser) => {
+        try {
+          if (authUser) {
+            const idTokenResult = await authUser.getIdTokenResult();
+            const userClaims = idTokenResult.claims;
 
-          console.log('User is not logged in');
+            if (authUser.uid) {
+              const userResult = await getUserDocument(authUser.uid);
+              const userData = userResult.userDocument.data();
+
+              userData.photoURL = authUser.photoURL;
+
+              if (userResult.success) {
+                setToLocalStorage('userId', authUser.uid);
+                setToLocalStorage('userToken', idTokenResult.token);
+                setToLocalStorage('userData', userData);
+
+                setUser(authUser);
+                setUserId(authUser.uid);
+                setUserToken(idTokenResult.token);
+                setUserData(userData);
+                setUserClaims(userClaims);
+
+                // Resolve with a custom object containing both authUser and additional data
+                resolve({ authUser, userData });
+                return;
+              }
+
+              // If the user is already in local storage, resolve with authUser only
+              resolve({ authUser });
+              return authUser;
+            }
+          } else {
+            // Now check local storage and resolve
+            const storedToken = localStorage.getItem('userToken');
+            handleUnauthenticatedUser();
+            resolve(storedToken ? { authUser: null, storedToken } : null);
+          }
+        } catch (error) {
+          reject(error);
+        } finally {
+          // Unsubscribe to avoid memory leaks
+          unsubscribe();
         }
       },
       (error) => {
-        reject(error); // Reject the promise in case of an error
+        reject(error);
       }
     );
   });
 };
 
-export const getUserAndCheckClaims = async (claimsArray) => {
-  try {
-    const user = await getCurrentUser();
+export const localStorageStuff = () => {
+  const userId = getFromLocalStorage('userId');
+  const userToken = getFromLocalStorage('userToken');
+  const userData = getFromLocalStorage('userData');
 
-    if (user) {
-      const idTokenResult = await user.getIdTokenResult();
-      const userClaims = idTokenResult.claims;
-
-      if (userClaims.userType && userClaims.userType.includes(claimsArray)) {
-        return { success: true, user };
-      }
-    }
-
-    return { success: false, message: 'User is not authenticated' };
-  } catch (error) {
-    return { success: false, message: error.message };
+  if (userId && userToken && userData) {
+    // Reconstruct and return the user object
+    return {
+      uid: userId,
+      token: userToken,
+      data: userData,
+    };
   }
+  return null; // Return null if any of the necessary information is missing
+};
+
+const handleUnauthenticatedUser = () => {
+  if (window.location.pathname.startsWith('/members/') && window.location.pathname !== '/login') {
+    window.location.href = '/login';
+  }
+
+  localStorage.clear();
+};
+
+// Function to control visibility based on authentication state and user claims
+const controlVisibility = (element) => {
+  const pfcContent = element.getAttribute('data-pfc-content');
+
+  if (getUserId()) {
+    // User is logged in, check permissions using pre-fetched user claims
+    if (getUserClaims().userRole === pfcContent || pfcContent === 'members') {
+      element.style.display = 'block';
+    } else {
+      element.remove();
+    }
+  } else {
+    // User is logged out, check data-pfc-content for visibility
+    if (pfcContent.startsWith('!')) {
+      element.style.display = 'block';
+    } else {
+      element.remove();
+    }
+  }
+};
+
+export const handleAuthElements = () => {
+  const authElements = document.querySelectorAll('[data-pfc-content]');
+  const userId = getUserId();
+  const userClaims = userId ? getUserClaims() : null;
+
+  if (authElements && authElements.length) {
+    authElements.forEach((element) => {
+      const requiredAccessLevel = element.getAttribute('data-pfc-content');
+
+      if (userId) {
+        // User is logged in, check permissions using pre-fetched user claims
+        const currentUserRole = userClaims.userRole;
+
+        if (!hasAccess(currentUserRole, requiredAccessLevel) && requiredAccessLevel !== 'members') {
+          element.remove();
+        } else {
+          element.style.display = 'block';
+        }
+      } else {
+        // User is logged out
+        if (requiredAccessLevel.startsWith('!members')) {
+          element.style.display = 'block';
+        } else {
+          element.remove();
+        }
+      }
+    });
+  }
+};
+
+// Function to check if the user has access based on their role
+export const hasAccess = (userRole, requiredAccessLevel) => {
+  if (requiredAccessLevel === 'corporateAdmin' && userRole === 'corporateAdmin') {
+    return true; // CorporateAdmin has access to corporateAdmin content
+  }
+  if (
+    requiredAccessLevel === 'multiLocationAdmin' &&
+    (userRole === 'multiLocationAdmin' || userRole === 'corporateAdmin')
+  ) {
+    return true; // MultiLocationAdmin has access to multiLocationAdmin content and corporateAdmin content
+  }
+  if (
+    requiredAccessLevel === 'locationManager' &&
+    (userRole === 'locationManager' ||
+      userRole === 'multiLocationAdmin' ||
+      userRole === 'corporateAdmin')
+  ) {
+    return true; // LocationManager has access to locationManager content, multiLocationAdmin content, and corporateAdmin content
+  }
+  if (requiredAccessLevel === 'staff') {
+    return true; // Staff is accessible to everyone
+  }
+  return false; // Default to deny access
 };
 
 // Utility function to get organization document based on user ID
@@ -147,32 +260,8 @@ export const setToLocalStorage = (key, data) => {
   }
 };
 
-export const isAdmin = async () => {
-  const tokenResult = await getIdTokenResult();
-
-  if (tokenResult) {
-    // Check if the user has the 'admin' claim
-    return tokenResult.claims && tokenResult.claims.admin === true;
-  }
-  // Handle the case when there is no authenticated user
-  displayError("You don't have the appropriate permissions to perform this action.");
-  return false;
-};
-
-export const isNonAdmin = async () => {
-  const tokenResult = await getIdTokenResult();
-
-  if (tokenResult) {
-    // Check if the user has the 'nonadmin' claim
-    return tokenResult.claims && tokenResult.claims.nonadmin === true;
-  }
-  // Handle the case when there is no authenticated user
-  displayError("You don't have the appropriate permissions to perform this action.");
-  return false;
-};
-
 // Utility function to get the user's document reference in Firestore
-export const getUserDocRef = () => {
+export const getUserDocRef = (userId) => {
   if (userId) {
     return doc(firestore, 'users', userId);
   }

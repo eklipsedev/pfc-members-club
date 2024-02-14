@@ -1,11 +1,11 @@
 import { updateProfile } from 'firebase/auth';
 import { getDownloadURL, getStorage, ref, uploadBytes } from 'firebase/storage';
 
-import { getCurrentUser } from '../../services/firebase/utils';
+import { getUser } from '../../globals';
 
 export const saveProfilePic = async (file) => {
   try {
-    const user = await getCurrentUser();
+    const user = getUser();
 
     if (user) {
       const storage = getStorage();
@@ -24,11 +24,6 @@ export const saveProfilePic = async (file) => {
 
     return { success: false, message: 'User is not authenticated' };
   } catch (error) {
-    // Customize error handling based on the type of error
-    if (error.code === 'storage/unauthorized') {
-      return { success: false, message: 'User does not have permission to upload a profile pic' };
-    }
-    // Generic error handling
-    return { success: false, message: error.message };
+    return { success: false, message: error };
   }
 };

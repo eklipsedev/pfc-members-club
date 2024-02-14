@@ -1,8 +1,8 @@
 import { httpsCallable } from 'firebase/functions';
 
+import { getUser, getUserClaims } from '../../globals';
 import { displayError, displayLoader, hideLoader } from '../../utils/formUtils';
 import { functions } from '../firebase/firebase-config';
-import { getCurrentUser, isAdmin, isNonAdmin } from '../firebase/utils';
 
 export const connectToShopify = async () => {
   const storeLinks = document.querySelectorAll('[data-shopify-link]');
@@ -13,18 +13,25 @@ export const connectToShopify = async () => {
         e.preventDefault();
 
         try {
-          displayLoader(storeLink);
+          displayLoader(storeLink, 'Authenticating...');
 
-          const user = await getCurrentUser();
+          const user = getUser();
 
           if (user) {
-            canadaCheck();
-
             const { email } = user;
 
-            if ((isAdmin || isNonAdmin) && email.endsWith('@chuzefitness.com')) {
+            const userClaims = getUserClaims();
+            const currentUserRole = userClaims.userRole;
+            const canAccessShopify =
+              currentUserRole === 'corporateAdmin' ||
+              currentUserRole === 'multiLocationAdmin' ||
+              currentUserRole === 'locationManager';
+
+            canadaCheck();
+
+            if (!canAccessShopify && email.endsWith('@chuzefitness.com')) {
               window.open('https://portal.pfcorders.com', '_blank');
-            } else if (isAdmin && !email.endsWith('@chuzefitness.com')) {
+            } else if (canAccessShopify && !email.endsWith('@chuzefitness.com')) {
               const connectToShopifyFunction = httpsCallable(functions, 'connectToShopify');
 
               const result = await connectToShopifyFunction();
@@ -38,7 +45,7 @@ export const connectToShopify = async () => {
                 hideLoader(storeLink);
                 displayError('There was an error connecting to PFC Orders');
               }
-            } else if (isNonAdmin && !email.endsWith('@chuzefitness.com')) {
+            } else if (!canAccessShopify && !email.endsWith('@chuzefitness.com')) {
               window.open('https://pfcorders.com', '_blank');
               hideLoader(storeLink);
             }

@@ -1,19 +1,28 @@
-import { updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { httpsCallable } from 'firebase/functions';
 
-import { functions } from '../../services/firebase/firebase-config';
-import {
-  getFromLocalStorage,
-  getOrganizationByUserId,
-  getUserAndCheckClaims,
-  setToLocalStorage,
-} from '../../services/firebase/utils';
+import { getUserClaims } from '../../globals';
+import { firestore, functions } from '../../services/firebase/firebase-config';
+import { getUsers, setUsers } from './variables';
 
-export const createOrgUser = async (firstName, lastName, email, phone, password, userType) => {
+export const createOrgUser = async (
+  firstName,
+  lastName,
+  email,
+  phone,
+  password,
+  locations,
+  userRole
+) => {
   try {
-    const { success, user } = await getUserAndCheckClaims('management'); // needs management claims for this action
+    const userClaims = getUserClaims();
+    const currentUserRole = userClaims.userRole;
+    const canCreateUser =
+      currentUserRole === 'corporateAdmin' ||
+      currentUserRole === 'multiLocationAdmin' ||
+      currentUserRole === 'locationManager';
 
-    if (success) {
+    if (canCreateUser) {
       try {
         const createOrgUserFunction = httpsCallable(functions, 'createOrgUser');
 
@@ -23,37 +32,41 @@ export const createOrgUser = async (firstName, lastName, email, phone, password,
           email,
           phone,
           password,
-          userType,
+          locations,
+          userRole,
         };
 
         const result = await createOrgUserFunction(userData);
 
         if (result.data.success) {
-          // Get organization document based on the user ID
-          const { success: orgSuccess, organizationDoc } = await getOrganizationByUserId(user.uid);
+          let resultUserData = result.data.userData;
+          // Fetch and attach location data
+          const locationPaths = resultUserData.locations;
+          const locationDataArray = [];
 
-          if (orgSuccess) {
-            // Increment the version for the organization document
-            const currentVersion = organizationDoc.data().version || 0;
-            const newVersion = currentVersion + 1;
+          if (locationPaths && locationPaths.length) {
+            for (const locationPath of locationPaths) {
+              const locationRef = doc(firestore, locationPath);
+              const locationDoc = await getDoc(locationRef);
 
-            // Update the organization document with the new version
-            await updateDoc(organizationDoc.ref, { version: newVersion });
-
-            // Update local storage with the new version
-            setToLocalStorage('organizationVersion', newVersion.toString());
-
-            const organizationUsers = await getFromLocalStorage('organizationUsers');
-
-            if (organizationUsers) {
-              organizationUsers.push(result.data.userData);
-
-              setToLocalStorage('organizationUsers', organizationUsers);
+              if (locationDoc.exists()) {
+                const locationData = locationDoc.data();
+                locationData.id = locationDoc.id;
+                locationDataArray.push(locationData);
+              } else {
+                console.error(`Location document not found for reference: ${locationRef.id}`);
+              }
             }
 
-            return { success: true, userData: userData, message: result.data.message };
+            resultUserData.locations = locationDataArray;
+
+            const users = getUsers();
+
+            setUsers(users.concat(resultUserData));
+
+            return { success: true, message: result.data.message, userData: resultUserData };
           }
-          return { success: false, message: 'Failed to get organization document.' };
+          resultUserData.locations = [];
         }
         return { success: false, message: result.data.message };
       } catch (error) {
@@ -64,7 +77,7 @@ export const createOrgUser = async (firstName, lastName, email, phone, password,
       }
     }
 
-    return { success: false, message: 'User is not authenticated' };
+    return { success: false, message: 'User does not have appropriate permissions' };
   } catch (error) {
     return { success: false, message: error.message };
   }

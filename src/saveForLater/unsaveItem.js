@@ -1,17 +1,18 @@
 // Import necessary Firebase modules
 import { getDoc, updateDoc } from 'firebase/firestore';
 
-import { getCurrentUser, getUserDocRef } from '../services/firebase/utils';
+import { getUserId, setUserData } from '../globals';
+import { getUserDocRef } from '../services/firebase/utils';
 import { getUserDataFromLocalStorage } from '../services/firebase/utils';
 import { updateSavedCount } from './updateSavedCount';
 
 // Function to unsave item
 export const unsaveItem = async (itemId) => {
   try {
-    const user = await getCurrentUser();
+    const userId = getUserId();
 
-    if (user) {
-      const userDocRef = getUserDocRef();
+    if (userId) {
+      const userDocRef = getUserDocRef(userId);
       const userSnapshot = await getDoc(userDocRef);
 
       if (userSnapshot.exists()) {
@@ -27,12 +28,13 @@ export const unsaveItem = async (itemId) => {
           // Update local storage without the unsaved item
           const userData = getUserDataFromLocalStorage() || { savedItems: [] };
           const updatedSavedItems = userData.savedItems.filter((item) => item.id !== itemId);
-          localStorage.setItem(
-            'userData',
-            JSON.stringify({ ...userData, savedItems: updatedSavedItems })
-          );
 
-          updateSavedCount();
+          const updatedObject = { ...userData, savedItems: updatedSavedItems };
+
+          localStorage.setItem('userData', JSON.stringify(updatedObject));
+          setUserData(updatedObject);
+
+          updateSavedCount(updatedSavedItems);
 
           return { success: true, message: 'Item unsaved successfully' };
         }

@@ -1,3 +1,6 @@
+import { resetComboBox } from '../account/users/comboBox';
+import { setFilteredLocations, setSelectedLocations } from '../account/users/variables';
+
 export const openModal = (modalId) => {
   const modal = document.querySelector(`[data-modal=${modalId}]`);
   modal.classList.add('is-open');
@@ -16,5 +19,21 @@ export const openModal = (modalId) => {
 
 export const closeModal = (modalId) => {
   const modal = document.querySelector(`[data-modal=${modalId}]`);
+  const modalForm = modal.querySelector('form');
+
+  if (modalForm) {
+    modalForm.reset();
+
+    const comboBoxComponent = modalForm.querySelector("[data-element='combo-box-component']");
+
+    if (comboBoxComponent) {
+      if (modalId === 'update-user' || modalId === 'create-user') {
+        setSelectedLocations([]);
+        setFilteredLocations([]);
+        resetComboBox(comboBoxComponent);
+      }
+    }
+  }
+
   modal.classList.remove('is-open');
 };

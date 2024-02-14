@@ -1,19 +1,21 @@
-import { getCurrentUser, getUserDataFromLocalStorage } from '../services/firebase/utils';
+import { getUserDataFromLocalStorage } from '../services/firebase/utils';
+import { updateSavedCount } from './updateSavedCount';
 
 export const renderSavedItems = async () => {
   try {
-    const user = await getCurrentUser();
+    const userData = getUserDataFromLocalStorage();
 
-    if (user) {
-      const userData = getUserDataFromLocalStorage();
-
+    if (userData) {
       const savedItems = userData.savedItems || [];
+
+      updateSavedCount(savedItems);
 
       // check if there are any saved items
       // if not, return an error to display the empty state
       if (!savedItems.length) {
         return { empty: true };
       }
+
       // use Finsweet load to get all items in the list
       window.fsAttributes = window.fsAttributes || [];
       window.fsAttributes.push([
@@ -35,10 +37,12 @@ export const renderSavedItems = async () => {
               }
             });
           }
-          return { success: false, message: "Couldn't retrieve the user data" };
         },
       ]);
-      return { success: true, message: 'Successfully rendered saved items' };
+      return {
+        success: true,
+        message: 'Successfully rendered saved items',
+      };
     }
     return { success: false, message: 'User is not authenticated' };
   } catch (error) {

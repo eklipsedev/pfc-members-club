@@ -2,14 +2,28 @@ export const getFormByAttribute = (attributeValue) => {
   return document.querySelector(`[data-pfc-form="${attributeValue}"]`);
 };
 
-export const displayLoader = (button) => {
+let buttonText = '';
+
+export const displayLoader = (button, loadingText) => {
   const loader = button.querySelector('[data-pfc-loader]');
   loader.style.display = 'flex';
+
+  const textElement = button.firstChild;
+
+  buttonText = textElement.textContent;
+
+  if (loadingText) {
+    textElement.textContent = loadingText;
+  }
 };
 
 export const hideLoader = (button) => {
   const loader = button.querySelector('[data-pfc-loader]');
   loader.style.display = 'none';
+
+  const textElement = button.firstChild;
+
+  textElement.textContent = buttonText;
 };
 
 // translate the default ugly Firebase error messages

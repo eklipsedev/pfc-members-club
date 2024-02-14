@@ -1,11 +1,12 @@
 import { updateEmail } from 'firebase/auth';
 import { updateDoc } from 'firebase/firestore';
 
-import { getCurrentUser, getUserDocRef } from '../../services/firebase/utils';
+import { getUser } from '../../globals';
+import { getUserDocRef } from '../../services/firebase/utils';
 
 export const updateUserEmail = async (emailField) => {
   try {
-    const user = await getCurrentUser();
+    const user = getUser();
 
     if (user) {
       const currentEmail = user.email;
@@ -26,6 +27,6 @@ export const updateUserEmail = async (emailField) => {
     }
     return { success: false, message: 'User is not authenticated' };
   } catch (error) {
-    return { success: false, message: error.message };
+    return { success: false, message: error };
   }
 };

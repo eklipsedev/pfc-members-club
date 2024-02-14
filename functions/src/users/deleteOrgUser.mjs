@@ -30,36 +30,14 @@ const deleteOrgUser = functions.https.onCall(async (data, context) => {
         };
       }
 
-      const organizationId = userDocSnapshot.data().organizationId;
-      const organizationDocRef = getFirestore().doc(`organizations/${organizationId}`);
-      const organizationDocSnapshot = await transaction.get(organizationDocRef);
-
-      // Ensure all read operations are completed before moving to write operations
-
       // Delete the user from Firebase Authentication
       await getAuth().deleteUser(userId);
 
       // Delete the user document from Firestore
       transaction.delete(userDocRef);
 
-      if (organizationDocSnapshot.exists) {
-        const organizationData = organizationDocSnapshot.data();
-
-        // Remove the user reference from the users array in the organization document
-        transaction.update(organizationDocRef, {
-          users: organizationData.users.filter((userRef) => userRef.id !== userId),
-        });
-      } else {
-        // Handle the case where the organization document does not exist
-        return {
-          success: false,
-          message: 'Organization document not found',
-        };
-      }
-
       return {
         success: true,
-        organizationId: organizationId,
         message: 'User deleted successfully',
       };
     });

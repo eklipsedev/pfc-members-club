@@ -1,15 +1,17 @@
 import { updateProfile } from 'firebase/auth';
 import { runTransaction } from 'firebase/firestore';
 
+import { getUser, getUserId } from '../../globals';
 import { firestore } from '../../services/firebase/firebase-config';
-import { getCurrentUser, getUserDocRef } from '../../services/firebase/utils';
+import { getUserDocRef } from '../../services/firebase/utils';
 
 export const updateUserProfile = async (firstNameField, lastNameField, phoneField) => {
   try {
-    const user = await getCurrentUser();
+    const user = getUser();
 
     if (user) {
-      const docRef = getUserDocRef();
+      const userId = getUserId();
+      const docRef = getUserDocRef(userId);
 
       // Use a Firestore transaction to ensure atomicity
       await runTransaction(firestore, async (transaction) => {
@@ -57,6 +59,6 @@ export const updateUserProfile = async (firstNameField, lastNameField, phoneFiel
     }
     return { success: false, message: 'User is not authenticated' };
   } catch (error) {
-    return { success: false, message: error.message };
+    return { success: false, message: error };
   }
 };

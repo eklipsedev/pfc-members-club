@@ -1,17 +1,17 @@
-import { getUserDataFromLocalStorage } from '../services/firebase/utils';
+import { getUserData } from '../globals';
 
-export const updateSavedCount = () => {
-  const userData = getUserDataFromLocalStorage();
+export const updateSavedCount = (updatedItems) => {
+  let savedItems;
 
-  if (userData) {
-    const { savedItems } = userData;
+  const userData = getUserData();
 
-    if (userData && savedItems.length) {
-      // get all items that need count updated
-      const savedCount = document.querySelectorAll('[data-save-count]');
-      savedCount.forEach((element) => {
-        element.textContent = savedItems.length;
-      });
-    }
+  userData ? (savedItems = userData.savedItems) : (savedItems = updatedItems);
+
+  if (savedItems && savedItems.length) {
+    // get all items that need count updated
+    const savedCount = document.querySelectorAll('[data-save-count]');
+    savedCount.forEach((element) => {
+      element.textContent = savedItems.length;
+    });
   }
 };

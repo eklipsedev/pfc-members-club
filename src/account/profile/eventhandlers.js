@@ -1,3 +1,4 @@
+import { getUserData } from '../../globals';
 import {
   displayError,
   displayLoader,
@@ -8,7 +9,6 @@ import {
 import { openModal } from '../../utils/modal';
 import { translateRole } from '../users/utils';
 import { saveProfilePic } from './saveProfilePic';
-import { setProfileData } from './setProfileData';
 import { updateUserEmail } from './updateEmail';
 import { updateUserPassword } from './updatePassword';
 import { updateUserProfile } from './updateProfile';
@@ -27,7 +27,7 @@ export const handleSaveProfilePic = () => {
       fileInput.addEventListener('change', async (event) => {
         const file = event.target.files[0];
         try {
-          displayLoader(uploadPicButton);
+          displayLoader(uploadPicButton, 'Uploading...');
           const result = await saveProfilePic(file);
 
           if (result.success) {
@@ -55,24 +55,21 @@ export const handleSetProfileData = async () => {
     const lastNameField = form.querySelector('[data-pfc-member="lastName"]');
     const phoneField = form.querySelector('[data-pfc-member="phone"]');
     // these elements are not inside form but exist on page
-    const userTypeElement = document.querySelector('[data-pfc-member="userType"]');
+    const userRoleElement = document.querySelector('[data-pfc-member="userRole"]');
     const emailElements = document.querySelectorAll('[data-pfc-member="email"]');
     const profilePicElement = document.querySelector('[data-pfc-member="profile-image"]');
 
     try {
-      const result = await setProfileData();
-      const userData = result.data;
+      const userData = getUserData();
 
-      const profilePicURL = result.user.photoURL || '';
-
-      if (result.success) {
+      if (userData) {
         // Set initial values
         firstNameField ? (firstNameField.value = userData.firstName) : '';
         lastNameField ? (lastNameField.value = userData.lastName) : '';
         phoneField ? (phoneField.value = userData.phone ? userData.phone : '') : '';
-        userTypeElement
-          ? (userTypeElement.textContent = translateRole(userData.userType))
-          : (userTypeElement.textContent = 'User does not have a role.');
+        userRoleElement
+          ? (userRoleElement.textContent = translateRole(userData.userRole))
+          : (userRoleElement.textContent = 'User does not have a role.');
 
         if (emailElements.length) {
           emailElements.forEach((element) => {
@@ -84,9 +81,15 @@ export const handleSetProfileData = async () => {
           });
         }
 
-        profilePicElement ? (profilePicElement.src = profilePicURL) : (profilePicElement.src = '');
+        const hasProfilePic = userData.photoURL !== null;
+
+        if (profilePicElement) {
+          profilePicElement.src = hasProfilePic
+            ? userData.photoURL
+            : 'https://uploads-ssl.webflow.com/650ef33ce788a656013c96da/6524c70660697f8ca2c9a15d_profile-icon.svg';
+        }
       } else {
-        displayError(result.message);
+        displayError('No user found');
       }
     } catch (error) {
       displayError(error.message);
@@ -108,7 +111,7 @@ export const handleUpdateUserProfile = () => {
       e.preventDefault();
 
       try {
-        displayLoader(submitButton);
+        displayLoader(submitButton, 'Saving...');
         const result = await updateUserProfile(firstNameField, lastNameField, phoneField);
 
         if (result.success) {
@@ -138,7 +141,7 @@ export const handleUpdateEmail = () => {
       e.preventDefault();
 
       try {
-        displayLoader(submitButton);
+        displayLoader(submitButton, 'Confirming...');
         const result = await updateUserEmail(emailField);
 
         if (result.success) {
@@ -161,15 +164,15 @@ export const handleUpdatePassword = () => {
 
   // Check if the profile form exists on the current page
   if (form) {
-    const currentPasswordField = form.querySelector('[data-pfc-member="currentPassword"]');
-    const newPasswordField = form.querySelector('[data-pfc-member="newPassword"]');
+    const currentPasswordField = form.querySelector('[data-pfc-member="current-password"]');
+    const newPasswordField = form.querySelector('[data-pfc-member="new-password"]');
     const submitButton = form.querySelector('[type="submit"]');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
 
       try {
-        displayLoader(submitButton);
+        displayLoader(submitButton, 'Updating...');
         const result = await updateUserPassword(currentPasswordField, newPasswordField);
 
         if (result.success) {

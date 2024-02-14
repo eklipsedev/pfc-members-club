@@ -1,10 +1,10 @@
 import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 'firebase/auth';
 
-import { getCurrentUser } from '../../services/firebase/utils';
+import { getUser } from '../../globals';
 
 export const updateUserPassword = async (currentPasswordField, newPasswordField) => {
   try {
-    const user = await getCurrentUser();
+    const user = getUser();
 
     if (user) {
       const currentPassword = currentPasswordField.value; // Replace with the actual current password
@@ -24,6 +24,6 @@ export const updateUserPassword = async (currentPasswordField, newPasswordField)
 
     return { success: false, message: 'User is not authenticated' };
   } catch (error) {
-    return { success: false, message: error.message };
+    return { success: false, message: error };
   }
 };

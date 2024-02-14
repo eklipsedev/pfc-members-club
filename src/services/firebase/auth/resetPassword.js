@@ -1,45 +1,25 @@
-import { sendPasswordResetEmail } from 'firebase/auth';
+import { confirmPasswordReset } from 'firebase/auth';
 
-import {
-  displayError,
-  displayLoader,
-  displaySuccess,
-  getFormByAttribute,
-  hideLoader,
-} from '../../../utils/formUtils';
 import { auth } from '../firebase-config';
 
-export const forgotPassword = () => {
-  const form = getFormByAttribute('forgot-password');
+export const resetPassword = async (password) => {
+  try {
+    // Get the action code from the URL
+    const actionCode = new URLSearchParams(window.location.search).get('oobCode');
 
-  // Check if the reset password form exists on the current page
-  if (form) {
-    const emailField = form.querySelector('[data-pfc-member="email"]');
-    const submitButton = form.querySelector('[type="submit"]');
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-
-      // Display loader when the form is submitted
-      displayLoader(submitButton);
-
+    // Check if the action code is present
+    if (actionCode) {
+      // Reset the user's password with the provided action code
       try {
-        // Send password reset email
-        const result = await sendPasswordResetEmail(auth, emailField.value);
+        await confirmPasswordReset(auth, actionCode, password);
 
-        if (result.success) {
-          hideLoader(submitButton);
-          emailField.value = '';
-          displaySuccess(result.message);
-        } else {
-          hideLoader(submitButton);
-          displayError(result.message);
-        }
+        return { success: true, message: 'Successfully reset the password.' };
       } catch (error) {
-        // Hide loader and display error message
-        hideLoader(submitButton);
-        displayError(error.message);
+        return { success: false, message: EvalError };
       }
-    });
+    }
+    return { success: false, message: 'No action code is present.' };
+  } catch (error) {
+    return { success: false, message: error };
   }
 };

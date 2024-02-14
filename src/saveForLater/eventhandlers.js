@@ -93,6 +93,9 @@ export const handleRenderSavedItems = async () => {
     const favoritesLoading = favoritesEmpty.nextElementSibling;
 
     try {
+      favoritesList.style.display = 'none';
+      favoritesLoading.style.display = 'block';
+
       const result = await renderSavedItems();
 
       if (result.empty) {

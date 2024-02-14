@@ -1,71 +1,136 @@
-import { getDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, limit, orderBy, query, where } from 'firebase/firestore';
 
-import {
-  getFromLocalStorage,
-  getOrganizationByUserId,
-  getUserAndCheckClaims,
-  setToLocalStorage,
-} from '../../services/firebase/utils';
+import { getUserClaims, getUserData, getUserId } from '../../globals';
+import { firestore } from '../../services/firebase/firebase-config';
+import { addLocation, getUsers, setUsers } from './variables';
 
-export const renderUsers = async () => {
+export const renderUsers = async (inputValue = null, page = 1, pageSize = 10) => {
   try {
-    const { success, user } = await getUserAndCheckClaims('management'); // needs management claims for this action
+    const userId = getUserId();
+    const userClaims = getUserClaims();
+    const { userRole } = userClaims;
 
-    if (success) {
-      // Get organization document based on the user ID
-      const { success: orgSuccess, organizationDoc } = await getOrganizationByUserId(user.uid);
+    const usersCollection = collection(firestore, 'users');
 
-      if (orgSuccess) {
-        // Check if the 'users' field exists in the organization document
-        if ('users' in organizationDoc.data()) {
-          // we have the users Array data
-          const usersArray = organizationDoc.data().users || [];
+    const queryUsers = async (queryFn, totalSize) => {
+      const usersQuery = queryFn();
+      const usersSnapshot = await getDocs(usersQuery);
+      const visibleSize = usersSnapshot.size;
 
-          const { version } = organizationDoc.data(); // will be a number
+      const usersDataArray = [];
 
-          let cachedData = await getFromLocalStorage('organizationUsers');
-          let cachedVersion = parseInt(getFromLocalStorage('organizationVersion'), 10);
+      for (const userDoc of usersSnapshot.docs) {
+        if (userDoc.id !== userId) {
+          const userDataWithId = {
+            userId: userDoc.id,
+            ...userDoc.data(),
+          };
 
-          // Check if local version is outdated or data is not present
-          if (!cachedVersion || cachedVersion !== version) {
-            const usersDataArray = [];
+          // Fetch and attach location data
+          const locationPaths = userDataWithId.locations;
+          const locationDataArray = [];
 
-            // Fetch the data for each document reference in the 'users' array
-            for (const userRef of usersArray) {
-              const userDocSnapshot = await getDoc(userRef);
+          if (locationPaths && locationPaths.length) {
+            for (const locationPath of locationPaths) {
+              const locationRef = doc(firestore, locationPath);
+              const locationDoc = await getDoc(locationRef);
 
-              if (userDocSnapshot.exists()) {
-                const userData = userDocSnapshot.data();
-
-                // Check if the user being processed is not the current user
-                if (userDocSnapshot.id !== user.uid) {
-                  // Include the user ID in the userData object
-                  const userDataWithId = {
-                    id: userDocSnapshot.id,
-                    ...userData,
-                  };
-
-                  // Push the modified userData object into usersDataArray
-                  usersDataArray.push(userDataWithId);
-                }
+              if (locationDoc.exists()) {
+                const locationData = locationDoc.data();
+                locationData.id = locationDoc.id;
+                locationDataArray.push(locationData);
+              } else {
+                console.error(`Location document not found for reference: ${locationRef.id}`);
               }
             }
 
-            setToLocalStorage('organizationUsers', usersDataArray);
-            setToLocalStorage('organizationVersion', version);
-
-            return { success: true, usersData: usersDataArray };
+            userDataWithId.locations = locationDataArray;
+          } else {
+            userDataWithId.locations = [];
           }
-          // Use data from local storage if version hasn't changed
-          return { success: true, usersData: cachedData };
+          usersDataArray.push(userDataWithId);
         }
-        return {
-          success: false,
-          message: "'users' field not found in organization document.",
-        };
       }
+
+      console.log(usersDataArray);
+
+      const users = getUsers();
+
+      setUsers(usersDataArray);
+
+      console.log(getUsers());
+
+      return { success: true, usersData: usersDataArray, totalSize, visibleSize };
+    };
+
+    // query for location manager
+    const handleLocationManager = async () => {
+      const locationPath = getUserData().locations[0];
+      const queryFunctionLimited = () =>
+        query(usersCollection, where('locations', 'array-contains', locationPath), limit(10));
+      const queryFunction = () =>
+        query(usersCollection, where('locations', 'array-contains', locationPath));
+      const totalSize = await getTotalSize(queryFunction);
+
+      return queryUsers(() => queryFunctionLimited(), totalSize);
+    };
+
+    // query for multi-location admin
+    const handleMultiLocationAdmin = async () => {
+      const locationPaths = getUserData().locations;
+      const locationRefs = locationPaths.map((locationPath) => doc(firestore, locationPath));
+
+      if (locationRefs.length > 0) {
+        for (const locationRef of locationRefs) {
+          const locationDoc = await getDoc(locationRef);
+          if (locationDoc.exists()) {
+            const locationData = locationDoc.data();
+            const locationId = locationDoc.id; // Accessing the document ID
+
+            addLocation({ id: locationId, ...locationData });
+          } else {
+            console.error(`Location document not found for reference: ${locationRef.path}`);
+          }
+        }
+      }
+
+      const queryFunctionLimited = () =>
+        query(usersCollection, where('locations', 'array-contains-any', locationPaths), limit(10));
+      const queryFunction = () =>
+        query(usersCollection, where('locations', 'array-contains-any', locationPaths));
+      const totalSize = await getTotalSize(queryFunction);
+
+      return queryUsers(() => queryFunctionLimited(), totalSize);
+    };
+
+    // query for corporate admin
+    const handleCorporateAdmin = async () => {
+      const queryFunctionLimited = () => query(usersCollection, limit(10));
+      const queryFunction = () => query(usersCollection);
+      const totalSize = await getTotalSize(queryFunction);
+
+      return queryUsers(() => queryFunctionLimited(), totalSize);
+    };
+
+    // utility to get total size of the query
+    const getTotalSize = async (queryFunction) => {
+      const query = queryFunction();
+      const snapshot = await getDocs(query);
+      return snapshot.size;
+    };
+
+    switch (userRole) {
+      case 'locationManager':
+        return handleLocationManager();
+      case 'multiLocationAdmin':
+        return handleMultiLocationAdmin();
+      case 'corporateAdmin':
+        return handleCorporateAdmin();
+      // Handle other user types if needed
+      default:
+        return { success: false, message: 'Unsupported user type' };
     }
   } catch (error) {
-    return { success: false, message: `Error loading users: ${error.message}` };
+    return { success: false, message: `Error loading users: ${error}` };
   }
 };
