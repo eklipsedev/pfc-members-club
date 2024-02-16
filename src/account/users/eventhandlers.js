@@ -2,6 +2,7 @@
 import { getUserClaims, getUserData } from '../../globals';
 import {
   displayError,
+  displayErrorAndHideLoader,
   displayLoader,
   displaySuccess,
   getFormByAttribute,
@@ -12,10 +13,9 @@ import { createListItem } from './createListItem';
 import { createOrgUser } from './createOrgUser';
 import { deleteOrgUser } from './deleteOrgUser';
 import { renderUsers } from './renderUsers';
-import { searchUsers } from './searchUsers';
 import { updateListItem } from './updateListItem';
 import { updateOrgUser } from './updateOrgUser';
-import { getTotalCount, getVisibleCount, setTotalCount, setVisibleCount } from './variables';
+import { getTotalCount, getVisibleCount, setUsers } from './variables';
 
 export const handleCreateOrgUser = () => {
   const form = getFormByAttribute('create-user');
@@ -39,7 +39,8 @@ export const handleCreateOrgUser = () => {
     const managerLocation = getUserData().locations[0];
     const isManager = getUserClaims().userRole === 'locationManager';
 
-    if (isManager && managerLocation) locationsField.value = managerLocation;
+    if (isManager && managerLocation)
+      locationsField.value = managerLocation.replace('locations/', '');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
@@ -67,12 +68,10 @@ export const handleCreateOrgUser = () => {
 
           form.reset();
         } else {
-          hideLoader(submitButton);
-          displayError(result.message);
+          displayErrorAndHideLoader(submitButton, result.message);
         }
       } catch (error) {
-        hideLoader(submitButton);
-        displayError(`Error creating user: ${error.message}`);
+        displayErrorAndHideLoader(submitButton, error.message);
       }
     });
 
@@ -129,12 +128,10 @@ export const handleUpdateOrgUser = () => {
           hideLoader(submitButton);
           displaySuccess(result.message);
         } else {
-          hideLoader(submitButton);
-          displayError(result.message);
+          displayErrorAndHideLoader(submitButton, result.message);
         }
       } catch (error) {
-        hideLoader(submitButton);
-        displayError(error.message);
+        displayErrorAndHideLoader(submitButton, error.message);
       }
     });
   }
@@ -166,11 +163,10 @@ export const handleDeleteOrgUser = () => {
           hideLoader(submitButton);
           displaySuccess('User successfully deleted');
         } else {
-          displayError(result.message);
+          displayErrorAndHideLoader(submitButton, result.message);
         }
       } catch (error) {
-        hideLoader(submitButton);
-        displayError(`Error deleting user: ${error}`);
+        displayErrorAndHideLoader(submitButton, error.message);
       }
     });
   }
@@ -180,6 +176,7 @@ export const handleRenderUsers = async () => {
   const usersComponent = document.querySelector("[data-pfc-item='users-list']");
   const totalCount = document.querySelector("[data-element='total-count']");
   const resultCount = document.querySelector("[data-element='result-count']");
+  const paginationElement = document.querySelector("[data-element='pagination']");
 
   if (usersComponent) {
     const usersList = usersComponent.firstElementChild;
@@ -200,15 +197,18 @@ export const handleRenderUsers = async () => {
 
           // Clone and append list items for each user
           usersData.forEach((user) => {
-            createListItem(user, usersList, usersListItem);
+            createListItem(user, usersList, usersListItem, 'add');
           });
+
+          setUsers(usersData);
 
           usersList.style.display = 'block';
           usersLoading.style.display = 'none';
-        }
-        setTotalCount(result.totalSize - 1);
-        setVisibleCount(result.visibleSize - 1);
 
+          if (result.hasMore) {
+            paginationElement.style.display = 'flex';
+          }
+        }
         resultCount.textContent = getVisibleCount();
         totalCount.textContent = getTotalCount(); // account for not showing current user
       } else {
@@ -216,8 +216,59 @@ export const handleRenderUsers = async () => {
         usersLoading.style.display = 'none';
       }
     } catch (error) {
-      displayError('Error loading users:', error);
+      displayError(error.message);
     }
+  }
+};
+
+export const handleLoadMoreUsers = async () => {
+  const usersComponent = document.querySelector("[data-pfc-item='users-list']");
+  const resultCount = document.querySelector("[data-element='result-count']");
+  const paginationElement = document.querySelector("[data-element='pagination']");
+
+  if (usersComponent && paginationElement) {
+    const loadMoreButton = paginationElement.firstChild;
+    const usersList = usersComponent.firstElementChild;
+    const usersListItem = usersList.firstElementChild;
+    const usersEmpty = usersList.nextElementSibling;
+    const usersLoading = usersEmpty.nextElementSibling;
+
+    loadMoreButton.addEventListener('click', async () => {
+      try {
+        displayLoader(loadMoreButton, 'Loading...');
+
+        const result = await renderUsers();
+
+        if (result.success) {
+          // Assuming renderUsers returns an array of user objects
+          const { usersData } = result;
+
+          if (usersData.length) {
+            usersData.forEach((user) => {
+              createListItem(user, usersList, usersListItem, 'add');
+            });
+
+            usersList.style.display = 'block';
+            usersLoading.style.display = 'none';
+          }
+
+          if (!result.hasMore) {
+            paginationElement.style.display = 'none';
+          } else {
+            paginationElement.style.display = 'flex';
+          }
+
+          resultCount.textContent = getVisibleCount();
+
+          hideLoader(loadMoreButton);
+        } else {
+          usersEmpty.style.display = 'block';
+          usersLoading.style.display = 'none';
+        }
+      } catch (error) {
+        displayError(error.message);
+      }
+    });
   }
 };
 
@@ -230,6 +281,9 @@ export const handleSearchUsers = async () => {
     const usersEmpty = usersList.nextElementSibling;
     const usersLoading = usersEmpty.nextElementSibling;
     const searchBar = document.querySelector("[data-pfc-action='search-users']");
+    const totalCount = document.querySelector("[data-element='total-count']");
+    const resultCount = document.querySelector("[data-element='result-count']");
+    const paginationElement = document.querySelector("[data-element='pagination']");
 
     let delayTimer;
 
@@ -241,8 +295,15 @@ export const handleSearchUsers = async () => {
           usersList.innerHTML = '';
           usersLoading.style.display = 'block';
           usersEmpty.style.display = 'none';
+          paginationElement.style.display = 'none';
 
-          const result = await searchUsers(searchBar.value);
+          let result;
+
+          if (searchBar.value.length > 0) {
+            result = await renderUsers(searchBar.value, 'search');
+          } else {
+            result = await renderUsers(null, 'search');
+          }
 
           if (result.success) {
             // Assuming renderUsers returns an array of user objects
@@ -261,11 +322,20 @@ export const handleSearchUsers = async () => {
               usersEmpty.style.display = 'block';
               usersLoading.style.display = 'none';
             }
+
+            if (!result.hasMore) {
+              paginationElement.style.display = 'none';
+            } else {
+              paginationElement.style.display = 'flex';
+            }
+
+            totalCount.textContent = getTotalCount();
+            resultCount.textContent = getVisibleCount();
           } else {
-            displayError(`Error loading users: ${result.message}`);
+            displayError(result.message);
           }
         } catch (error) {
-          displayError('Error loading users:', error);
+          displayError(error.message);
         }
       }, 1000);
     });

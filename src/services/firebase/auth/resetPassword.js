@@ -7,18 +7,11 @@ export const resetPassword = async (password) => {
     // Get the action code from the URL
     const actionCode = new URLSearchParams(window.location.search).get('oobCode');
 
-    // Check if the action code is present
-    if (actionCode) {
-      // Reset the user's password with the provided action code
-      try {
-        await confirmPasswordReset(auth, actionCode, password);
+    if (!actionCode) return { success: false, message: 'No action code is present.' };
 
-        return { success: true, message: 'Successfully reset the password.' };
-      } catch (error) {
-        return { success: false, message: EvalError };
-      }
-    }
-    return { success: false, message: 'No action code is present.' };
+    await confirmPasswordReset(auth, actionCode, password);
+
+    return { success: true, message: 'Successfully reset the password.' };
   } catch (error) {
     return { success: false, message: error };
   }

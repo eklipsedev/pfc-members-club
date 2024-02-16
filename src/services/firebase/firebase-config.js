@@ -1,9 +1,9 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore, persistentLocalCache } from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 
-// Your configuration object
+// configuration object
 const firebaseConfig = {
   apiKey: 'AIzaSyCuzMDALA6IDegRI8-suNTEgm1ZJLwDHhI',
   authDomain: 'performance-food-1566579119507.firebaseapp.com',
@@ -18,8 +18,16 @@ const firebaseConfig = {
 // Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const firestore = getFirestore(app);
 const functions = getFunctions(app);
+
+initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    synchronizeTabs: true,
+    maxAge: 60 * 60 * 1000,
+  }),
+});
+
+const firestore = getFirestore(app);
 
 export { auth, firestore, functions };
 

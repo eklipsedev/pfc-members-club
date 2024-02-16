@@ -6,29 +6,25 @@ import { displaySuccess } from '../../../utils/formUtils';
 import { auth } from '../firebase-config';
 
 export const logout = async () => {
+  const user = getUser();
+
+  if (!user) return { success: false, message: 'User is not authenticated' };
+
   try {
-    const user = getUser();
+    await signOut(auth);
 
-    if (user) {
-      try {
-        await signOut(auth);
+    // clear all stored data
+    setUser(null);
+    setUserId(null);
+    setUserToken(null);
+    setUserData(null);
+    setUserClaims(null);
 
-        setUser(null);
-        setUserId(null);
-        setUserToken(null);
-        setUserData(null);
-        setUserClaims(null);
+    localStorage.clear();
 
-        localStorage.clear();
-
-        return { success: true, message: 'Successfully logged out' };
-      } catch (error) {
-        return { success: false, message: error.message };
-      }
-    }
-    return { success: false, message: 'User is not authenticated' };
+    return { success: true, message: 'Successfully logged out' };
   } catch (error) {
-    return { success: false, message: error };
+    return { success: false, message: error.message };
   }
 };
 

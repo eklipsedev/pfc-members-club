@@ -9,6 +9,8 @@ let users = [];
 
 let visibleCount = 0;
 let totalCount = 0;
+let currentPage = 1;
+let lastVisible = null;
 
 export const getUsers = () => users;
 export const setUsers = (value) => {
@@ -45,6 +47,16 @@ export const setVisibleCount = (newValue = visibleCount) => {
 export const getTotalCount = () => totalCount;
 export const setTotalCount = (newValue = totalCount) => {
   totalCount = newValue;
+};
+
+export const getCurrentPage = () => currentPage;
+export const setCurrentPage = (newValue) => {
+  currentPage = newValue;
+};
+
+export const getLastVisible = () => lastVisible;
+export const setLastVisible = (newValue) => {
+  lastVisible = newValue;
 };
 
 export const getLocations = () => locations;

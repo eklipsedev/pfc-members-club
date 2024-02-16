@@ -2,9 +2,9 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 
 import { auth } from '../firebase-config';
 
-export const logInWithEmail = async (emailField, passwordField) => {
+export const logInWithEmail = async (email, password) => {
   try {
-    await signInWithEmailAndPassword(auth, emailField.value, passwordField.value);
+    await signInWithEmailAndPassword(auth, email, password);
 
     return { success: true, message: 'Logged in successfully' };
   } catch (error) {

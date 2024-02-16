@@ -1,5 +1,5 @@
 import {
-  displayError,
+  displayErrorAndHideLoader,
   displayLoader,
   displaySuccess,
   getFormByAttribute,
@@ -14,120 +14,110 @@ import { resetPassword } from './resetPassword';
 export const handleLoginClick = async () => {
   const form = getFormByAttribute('login');
 
-  if (form) {
-    const emailField = form.querySelector('[data-pfc-member="email"]');
-    const passwordField = form.querySelector('[data-pfc-member="password"]');
-    const submitButton = form.querySelector('[type="submit"]');
+  if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  const emailField = form.querySelector('[data-pfc-member="email"]');
+  const passwordField = form.querySelector('[data-pfc-member="password"]');
+  const submitButton = form.querySelector('[type="submit"]');
 
-      try {
-        displayLoader(submitButton, 'Loading...');
-        const result = await logInWithEmail(emailField, passwordField, submitButton);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-        if (result.success) {
-          // Redirect to dashboard on successful login
-          window.location.href = '/members/home';
-        } else {
-          hideLoader(submitButton);
-          displayError(result.message);
-        }
-      } catch (error) {
-        hideLoader(submitButton);
-        displayError(error.message);
+    try {
+      displayLoader(submitButton, 'Loading...');
+      const result = await logInWithEmail(emailField.value, passwordField.value);
+
+      if (result.success) {
+        // Redirect to dashboard on successful login
+        window.location.href = '/members/home';
+      } else {
+        displayErrorAndHideLoader(submitButton, result.message);
       }
-    });
-  }
+    } catch (error) {
+      displayErrorAndHideLoader(submitButton, error.message);
+    }
+  });
 };
 
 // handle logout
 export const handleLogoutClick = async () => {
   const logoutLink = document.querySelector('[data-pfc-action="logout"]');
 
-  if (logoutLink) {
-    logoutLink.addEventListener('click', async (e) => {
-      e.preventDefault();
+  if (!logoutLink) return;
 
-      try {
-        displayLoader(logoutLink, 'Logging Out...');
-        const result = await logout();
+  logoutLink.addEventListener('click', async (e) => {
+    e.preventDefault();
 
-        if (result.success) {
-          window.location.href = '/?logout=true';
-        } else {
-          hideLoader(logoutLink);
-          displayError(result.message);
-        }
-      } catch (error) {
-        hideLoader(logoutLink);
-        displayError("Couldn't log the user out");
+    try {
+      displayLoader(logoutLink, 'Logging Out...');
+      const result = await logout();
+
+      if (result.success) {
+        window.location.href = '/?logout=true';
+      } else {
+        displayErrorAndHideLoader(logoutLink, result.message);
       }
-    });
-  }
+    } catch (error) {
+      displayErrorAndHideLoader(logoutLink, error.message);
+    }
+  });
 };
 
 // handle forgot password
 export const handleForgotPassword = async () => {
   const form = getFormByAttribute('forgot-password');
 
-  // Check if the reset password form exists on the current page
-  if (form) {
-    const emailField = form.querySelector('[data-pfc-member="email"]');
-    const submitButton = form.querySelector('[type="submit"]');
+  if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  const emailField = form.querySelector('[data-pfc-member="email"]');
+  const submitButton = form.querySelector('[type="submit"]');
 
-      try {
-        displayLoader(submitButton, 'Sending...');
-        // Send password reset email
-        const result = await forgotPassword(emailField.value);
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-        if (result.success) {
-          hideLoader(submitButton);
-          emailField.value = '';
-          displaySuccess(result.message);
-        } else {
-          hideLoader(submitButton);
-          displayError(result.message);
-        }
-      } catch (error) {
+    try {
+      displayLoader(submitButton, 'Sending...');
+      // Send password reset email
+      const result = await forgotPassword(emailField.value);
+
+      if (result.success) {
         hideLoader(submitButton);
-        displayError(error.message);
+        emailField.value = '';
+        displaySuccess(result.message);
+      } else {
+        displayErrorAndHideLoader(submitButton, result.message);
       }
-    });
-  }
+    } catch (error) {
+      displayErrorAndHideLoader(submitButton, error.message);
+    }
+  });
 };
 
 // handle reset password
 export const handleResetPassword = async () => {
   const form = getFormByAttribute('reset-password');
 
-  // Check if the reset password form exists on the current page
-  if (form) {
-    const passwordField = form.querySelector('[data-pfc-member="password"]');
-    const submitButton = form.querySelector('[type="submit"]');
+  if (!form) return;
 
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
+  const passwordField = form.querySelector('[data-pfc-member="password"]');
+  const submitButton = form.querySelector('[type="submit"]');
 
-      try {
-        displayLoader(submitButton, 'Resetting...');
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
 
-        const result = await resetPassword(passwordField.value);
+    try {
+      displayLoader(submitButton, 'Resetting...');
 
-        if (result.success) {
-          // redirect to password set page
-          window.location.href = '/password-set';
-        } else {
-          hideLoader(submitButton);
-          displayError(result.message);
-        }
-      } catch (error) {
-        hideLoader(submitButton);
-        displayError(error.message);
+      const result = await resetPassword(passwordField.value);
+
+      if (result.success) {
+        // redirect to password set page
+        window.location.href = '/password-set';
+      } else {
+        displayErrorAndHideLoader(submitButton, result.message);
       }
-    });
-  }
+    } catch (error) {
+      displayErrorAndHideLoader(submitButton, error.message);
+    }
+  });
 };

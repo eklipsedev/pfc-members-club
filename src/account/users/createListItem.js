@@ -1,6 +1,5 @@
 /* eslint-disable prefer-destructuring */
-import { getUserClaims, getUserData } from '../../globals';
-import { hasAccess } from '../../services/firebase/utils';
+import { getUserClaims } from '../../globals';
 import { getFormByAttribute } from '../../utils/formUtils';
 import { openModal } from '../../utils/modal';
 import { addToSelectedLocations } from './comboBox';
@@ -8,7 +7,6 @@ import { translateRole } from './utils';
 
 export const createListItem = async (user, usersList, usersListItem, type = 'create') => {
   const clonedItem = usersListItem.cloneNode(true);
-
   const firstNameElement = clonedItem.querySelector("[data-pfc-member='firstName']");
   const lastNameElement = clonedItem.querySelector("[data-pfc-member='lastName']");
   const emailElement = clonedItem.querySelector("[data-pfc-member='email']");
@@ -23,22 +21,28 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
   const userActionsDropdown = toggleButton.parentElement;
 
   const currentUserRole = getUserClaims().userRole;
-  const currentUserLocation =
-    currentUserRole === 'locationManager' ? getUserData().locations[0] : '';
+  //const currentManagerLocation =
+  //currentUserRole === 'locationManager' ? getUserData().locations[0] : [];
 
-  if (
-    (user.userRole === 'multiLocationAdmin' || user.userRole === 'corporateAdmin') &&
-    !hasAccess(currentUserRole, 'multiLocationAdmin')
+  // set user ID to the element for easy access
+  clonedItem.setAttribute('data-id', user.userId);
+
+  // handle setting the list item dropdown based on permission level
+  if (user.userRole === 'corporateAdmin' && currentUserRole !== 'corporateAdmin') {
+    userActionsDropdown.remove();
+  } else if (
+    user.userRole === 'multiLocationAdmin' &&
+    (currentUserRole !== 'multiLocationAdmin' || currentUserRole !== 'corporateAdmin')
   ) {
     userActionsDropdown.remove();
   }
 
-  clonedItem.setAttribute('data-id', user.userId);
-
+  // handle setting first, last and email
   firstNameElement.textContent = user.firstName || '--';
   lastNameElement.textContent = user.lastName || '--';
   emailElement.textContent = user.email || '--';
 
+  // handle setting users locations for each list item
   const { locations } = user;
 
   if (locations) {
@@ -56,6 +60,7 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
     }
   }
 
+  // set user role element
   userRoleElement.textContent = user.userRole ? translateRole(user.userRole) : '--';
 
   const handleToggleButtonClick = () => {
@@ -65,8 +70,10 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
     dropdownContent.classList.toggle('is-open');
   };
 
+  // handle "view" button
   viewUserButton.href = `/members/user?userId=${user.userId}`;
 
+  // handle "Update" button
   const handleUpdateUserClick = () => {
     const form = getFormByAttribute('update-user');
     const firstNameElement = form.querySelector("[data-pfc-member='firstName']");
@@ -100,8 +107,14 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
       } else {
         locationsElement.value = '';
       }
-    } else {
-      locationsElement.value = currentUserLocation.replace('locations/', '');
+    } else if (locations) {
+      let locationPaths = [];
+
+      locations.forEach((location) => {
+        const transformedLocation = location.id.replace('locations/', '');
+        locationPaths.push(transformedLocation);
+      });
+      locationsElement.value = locationPaths.join(','); //currentManagerLocation.replace('locations/', '');
     }
 
     userRoleElement.value = user.userRole;
@@ -110,6 +123,7 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
     openModal('update-user');
   };
 
+  // handle "Delete" button
   const handleDeleteUserClick = () => {
     const form = getFormByAttribute('delete-user');
     const idElement = form.querySelector("[data-pfc-member='id']");
@@ -119,6 +133,7 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
     openModal('delete-user');
   };
 
+  // handle event listeners
   viewUserButton.addEventListener('click', () => {
     handleViewUserClick();
   });
@@ -134,8 +149,12 @@ export const createListItem = async (user, usersList, usersListItem, type = 'cre
     handleToggleButtonClick();
   });
 
-  // Append the cloned item to the users list
-  if (type === 'create') usersList.prepend(clonedItem);
+  // Append or prepend the cloned item to the users list
+  if (type === 'create') {
+    usersList.prepend(clonedItem);
+  } else if (type === 'add') {
+    usersList.appendChild(clonedItem);
+  }
 
   return clonedItem;
 };

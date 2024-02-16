@@ -85,6 +85,7 @@ export const handleComboBox = () => {
           }));
 
           setLocations(locationsData);
+          console.log(locationsData);
           return locationsData;
         }
       };
@@ -146,7 +147,9 @@ export const addToSelectedLocations = (
   getSelectedLocations().forEach((location) => {
     getIds.push(location.id);
   });
+  console.log(getIds);
   comboBoxValueInput.value = getIds.join(',');
+  console.log(comboBoxValueInput.value);
 };
 
 // function to remove a selected location

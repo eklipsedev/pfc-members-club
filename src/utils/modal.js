@@ -5,23 +5,27 @@ export const openModal = (modalId) => {
   const modal = document.querySelector(`[data-modal=${modalId}]`);
   modal.classList.add('is-open');
 
-  // Attach a click event listener to the first child of the modal
-  const closeModalButton = modal.firstElementChild;
+  const closeModalButtons = modal.querySelectorAll("[data-pfc-action='close-modal']");
 
-  const closeModalHandler = () => {
+  closeModalButtons.forEach((closeModalButton) => {
+    closeModalButton.addEventListener('click', () => {
+      closeModalHandler(closeModalButton);
+    });
+  });
+
+  const closeModalHandler = (closeModalButton) => {
     closeModal(modalId);
     // Remove the event listener after it's been clicked once
     closeModalButton.removeEventListener('click', closeModalHandler);
   };
-
-  closeModalButton.addEventListener('click', closeModalHandler);
 };
 
 export const closeModal = (modalId) => {
   const modal = document.querySelector(`[data-modal=${modalId}]`);
   const modalForm = modal.querySelector('form');
+  const updateEmailForm = modalForm.getAttribute('data-pfc-form') === 'update-email';
 
-  if (modalForm) {
+  if (modalForm && !updateEmailForm) {
     modalForm.reset();
 
     const comboBoxComponent = modalForm.querySelector("[data-element='combo-box-component']");

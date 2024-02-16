@@ -1,40 +1,32 @@
 import { httpsCallable } from 'firebase/functions';
 
-import { getUserClaims } from '../../globals';
 import { functions } from '../../services/firebase/firebase-config';
+import { checkPermissions } from './utils';
+import { getUsers, setUsers } from './variables';
 
 export const deleteOrgUser = async (userToDeleteId) => {
   try {
-    const userClaims = getUserClaims();
-    const currentUserRole = userClaims.userRole;
-    const canDeleteUser =
-      currentUserRole === 'corporateAdmin' ||
-      currentUserRole === 'multiLocationAdmin' ||
-      currentUserRole === 'locationManager';
+    checkPermissions();
 
-    if (canDeleteUser) {
-      try {
-        const deleteOrgUserFunction = httpsCallable(functions, 'deleteOrgUser');
+    const deleteOrgUserFunction = httpsCallable(functions, 'deleteOrgUser');
 
-        const userData = {
-          userId: userToDeleteId,
-        };
+    const userData = {
+      userId: userToDeleteId,
+    };
 
-        const result = await deleteOrgUserFunction(userData);
+    const result = await deleteOrgUserFunction(userData);
 
-        console.log(result);
-
-        if (result.data.success) {
-          return { success: true, message: result.data.message };
-        }
-        return { success: false, message: result.data.message };
-      } catch (error) {
-        return {
-          success: false,
-          message: "Couldn't successfully call the delete org user function",
-        };
-      }
+    if (!result.data.success) {
+      return { success: false, message: result.data.message };
     }
+
+    const users = getUsers();
+
+    const filteredUsers = users.filter((user) => user.userId !== userToDeleteId);
+
+    setUsers(filteredUsers);
+
+    return { success: true, message: result.data.message };
   } catch (error) {
     return { success: false, message: error.message };
   }

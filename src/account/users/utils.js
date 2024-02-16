@@ -1,3 +1,8 @@
+import { doc, getDoc } from 'firebase/firestore';
+
+import { getUserClaims } from '../../globals';
+import { firestore } from '../../services/firebase/firebase-config';
+
 export const translateRole = (text) => {
   switch (text) {
     case 'corporateAdmin':
@@ -17,32 +22,35 @@ export const translateRole = (text) => {
   }
 };
 
-export const unwrapUserLocations = async (userData) => {
-  // Fetch and attach location data
-  const locationPaths = userData.locations;
-  const locationDataArray = [];
-
-  if (locationPaths && locationPaths.length) {
-    for (const locationPath of locationPaths) {
+// unwrap the location references based on user locations
+export const fetchAndAttachLocationData = async (locationPaths) => {
+  const locationDataArray = await Promise.all(
+    locationPaths.map(async (locationPath) => {
       const locationRef = doc(firestore, locationPath);
       const locationDoc = await getDoc(locationRef);
 
       if (locationDoc.exists()) {
         const locationData = locationDoc.data();
         locationData.id = locationDoc.id;
-        locationDataArray.push(locationData);
-      } else {
-        console.error(`Location document not found for reference: ${locationRef.id}`);
+        locationData.locationPath = locationPath;
+        return locationData;
       }
-    }
+      console.error(`Location document not found for reference: ${locationRef.id}`);
+      return null;
+    })
+  );
 
-    resultUserData.locations = locationDataArray;
+  return locationDataArray.filter(Boolean);
+};
 
-    //const users = getUsers();
+// check user permissions to create, update or delete a user
+export const checkPermissions = () => {
+  const userClaims = getUserClaims();
+  const currentUserRole = userClaims.userRole;
+  const allowedRoles = ['corporateAdmin', 'multiLocationAdmin', 'locationManager'];
+  const canModifyUser = allowedRoles.includes(currentUserRole);
 
-    updateUserById(resultUserData.userId, resultUserData);
-
-    return { success: true, message: result.data.message, userData: resultUserData };
+  if (!canModifyUser) {
+    throw new Error('User does not have appropriate permissions');
   }
-  resultUserData.locations = [];
 };

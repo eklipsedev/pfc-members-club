@@ -1,7 +1,13 @@
 import { httpsCallable } from 'firebase/functions';
 
-import { getUser, getUserClaims } from '../../globals';
-import { displayError, displayLoader, hideLoader } from '../../utils/formUtils';
+import { checkPermissions } from '../../account/users/utils';
+import { getUser } from '../../globals';
+import {
+  displayError,
+  displayErrorAndHideLoader,
+  displayLoader,
+  hideLoader,
+} from '../../utils/formUtils';
 import { functions } from '../firebase/firebase-config';
 
 export const connectToShopify = async () => {
@@ -17,45 +23,39 @@ export const connectToShopify = async () => {
 
           const user = getUser();
 
-          if (user) {
-            const { email } = user;
-
-            const userClaims = getUserClaims();
-            const currentUserRole = userClaims.userRole;
-            const canAccessShopify =
-              currentUserRole === 'corporateAdmin' ||
-              currentUserRole === 'multiLocationAdmin' ||
-              currentUserRole === 'locationManager';
-
-            canadaCheck();
-
-            if (!canAccessShopify && email.endsWith('@chuzefitness.com')) {
-              window.open('https://portal.pfcorders.com', '_blank');
-            } else if (canAccessShopify && !email.endsWith('@chuzefitness.com')) {
-              const connectToShopifyFunction = httpsCallable(functions, 'connectToShopify');
-
-              const result = await connectToShopifyFunction();
-
-              if (result) {
-                const url = result.data;
-
-                window.open(url, '_blank');
-                hideLoader(storeLink);
-              } else {
-                hideLoader(storeLink);
-                displayError('There was an error connecting to PFC Orders');
-              }
-            } else if (!canAccessShopify && !email.endsWith('@chuzefitness.com')) {
-              window.open('https://pfcorders.com', '_blank');
-              hideLoader(storeLink);
-            }
-          } else {
+          if (!user) {
             hideLoader(storeLink);
             displayError("The user isn't authenticated");
+            return;
+          }
+
+          const { email } = user;
+
+          checkPermissions();
+
+          canadaCheck();
+
+          if (!canAccessShopify && email.endsWith('@chuzefitness.com')) {
+            window.open('https://portal.pfcorders.com', '_blank');
+          } else if (canAccessShopify && !email.endsWith('@chuzefitness.com')) {
+            const connectToShopifyFunction = httpsCallable(functions, 'connectToShopify');
+
+            const result = await connectToShopifyFunction();
+
+            if (result) {
+              const url = result.data;
+
+              window.open(url, '_blank');
+              hideLoader(storeLink);
+            } else {
+              displayErrorAndHideLoader(storeLink, 'There was an error connecting to PFC Orders');
+            }
+          } else if (!canAccessShopify && !email.endsWith('@chuzefitness.com')) {
+            window.open('https://pfcorders.com', '_blank');
+            hideLoader(storeLink);
           }
         } catch (error) {
-          hideLoader(storeLink);
-          displayError(error.message);
+          displayErrorAndHideLoader(storeLink, error.message);
         }
       });
     });

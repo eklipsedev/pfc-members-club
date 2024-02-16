@@ -94,27 +94,6 @@ const handleUnauthenticatedUser = () => {
   localStorage.clear();
 };
 
-// Function to control visibility based on authentication state and user claims
-const controlVisibility = (element) => {
-  const pfcContent = element.getAttribute('data-pfc-content');
-
-  if (getUserId()) {
-    // User is logged in, check permissions using pre-fetched user claims
-    if (getUserClaims().userRole === pfcContent || pfcContent === 'members') {
-      element.style.display = 'block';
-    } else {
-      element.remove();
-    }
-  } else {
-    // User is logged out, check data-pfc-content for visibility
-    if (pfcContent.startsWith('!')) {
-      element.style.display = 'block';
-    } else {
-      element.remove();
-    }
-  }
-};
-
 export const handleAuthElements = () => {
   const authElements = document.querySelectorAll('[data-pfc-content]');
   const userId = getUserId();
@@ -168,32 +147,6 @@ export const hasAccess = (userRole, requiredAccessLevel) => {
     return true; // Staff is accessible to everyone
   }
   return false; // Default to deny access
-};
-
-// Utility function to get organization document based on user ID
-export const getOrganizationByUserId = async (userId) => {
-  try {
-    const userDocRef = doc(firestore, 'users', userId);
-    const userDocSnapshot = await getDoc(userDocRef);
-
-    if (userDocSnapshot.exists()) {
-      const userData = userDocSnapshot.data();
-
-      if ('organizationId' in userData) {
-        const organizationDocRef = doc(firestore, 'organizations', userData.organizationId);
-        const organizationDocSnapshot = await getDoc(organizationDocRef);
-
-        if (organizationDocSnapshot.exists()) {
-          return { success: true, organizationDoc: organizationDocSnapshot };
-        }
-        return { success: false, message: 'Organization document not found.' };
-      }
-      return { success: false, message: 'organizationId not found in user document.' };
-    }
-    return { success: false, message: 'User document not found.' };
-  } catch (error) {
-    return { success: false, message: error.message };
-  }
 };
 
 export const getUserDocument = async (userId) => {

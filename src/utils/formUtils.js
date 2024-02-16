@@ -112,3 +112,8 @@ export const displayError = (error) => {
 export const displaySuccess = (message) => {
   displayMessage('[data-pfc-success]', message);
 };
+
+export const displayErrorAndHideLoader = (submitButton, errorMessage) => {
+  hideLoader(submitButton);
+  displayError(errorMessage);
+};

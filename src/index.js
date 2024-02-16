@@ -1,3 +1,5 @@
+import { initializeFirestore, persistentLocalCache } from 'firebase/firestore';
+
 import {
   handleOpenChangeEmailModal,
   handleOpenUpdatePasswordModal,
@@ -11,6 +13,7 @@ import { handleComboBox } from './account/users/comboBox';
 import {
   handleCreateOrgUser,
   handleDeleteOrgUser,
+  handleLoadMoreUsers,
   handleRenderUsers,
   handleSearchUsers,
   handleUpdateOrgUser,
@@ -31,6 +34,7 @@ import {
 } from './services/firebase/auth/eventHandlers';
 import { togglePasswordVisibility } from './services/firebase/auth/loginWithEmail';
 import { showLogoutMessage } from './services/firebase/auth/logout';
+import app from './services/firebase/firebase-config';
 import { getCurrentUser, handleAuthElements } from './services/firebase/utils';
 import { connectToShopify } from './services/shopify/multipass';
 import {
@@ -42,6 +46,14 @@ import {
   handleSetModuleDropdowns,
 } from './university/eventhandlers';
 import { handleToggleDropdowns } from './utils/dropdown';
+
+// Initialize Firestore with persistence
+initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    synchronizeTabs: true,
+    maxAge: 60 * 60 * 1000,
+  }),
+});
 
 (async () => {
   await getCurrentUser();
@@ -91,6 +103,7 @@ import { handleToggleDropdowns } from './utils/dropdown';
   handleUpdateOrgUser();
   handleDeleteOrgUser();
   handleComboBox();
+  handleLoadMoreUsers();
 
   handleToggleDropdowns();
 })();

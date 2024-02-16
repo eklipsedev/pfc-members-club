@@ -2,30 +2,30 @@ import { updateEmail } from 'firebase/auth';
 import { updateDoc } from 'firebase/firestore';
 
 import { getUser } from '../../globals';
+import { firestore } from '../../services/firebase/firebase-config';
 import { getUserDocRef } from '../../services/firebase/utils';
 
-export const updateUserEmail = async (emailField) => {
+export const updateUserEmail = async (newEmail) => {
+  const user = getUser();
+
+  if (!user) return { success: false, message: 'User is not authenticated' };
+
   try {
-    const user = getUser();
+    const currentEmail = user.email;
 
-    if (user) {
-      const currentEmail = user.email;
-      const newEmail = emailField.value;
+    if (newEmail !== currentEmail) {
+      await updateEmail(user, newEmail);
 
-      if (newEmail !== currentEmail) {
-        await updateEmail(user, newEmail);
+      const userDoc = getUserDocRef();
+      const userDocData = userDoc.data();
 
-        const userDoc = getUserDocRef();
-        const userDocData = userDoc.data();
-
-        await updateDoc(user.uid, {
-          ...userDocData,
-          email: newEmail,
-        });
-        return { success: true, message: 'Email updated successfully' };
-      }
+      await updateDoc(user.uid, {
+        ...userDocData,
+        email: newEmail,
+        lastUpdated: firestore.FieldValue.serverTimestamp(),
+      });
+      return { success: true, message: 'Email updated successfully' };
     }
-    return { success: false, message: 'User is not authenticated' };
   } catch (error) {
     return { success: false, message: error };
   }

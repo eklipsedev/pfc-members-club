@@ -2,27 +2,22 @@ import { EmailAuthProvider, reauthenticateWithCredential, updatePassword } from 
 
 import { getUser } from '../../globals';
 
-export const updateUserPassword = async (currentPasswordField, newPasswordField) => {
+export const updateUserPassword = async (currentPassword, newPassword) => {
+  const user = getUser();
+
+  if (!user) return { success: false, message: 'User is not authenticated' };
+
   try {
-    const user = getUser();
+    // Create a credential with the user's email and current password
+    const credential = EmailAuthProvider.credential(user.email, currentPassword);
 
-    if (user) {
-      const currentPassword = currentPasswordField.value; // Replace with the actual current password
-      const newPassword = newPasswordField.value;
+    // Re-authenticate the user with the credential
+    await reauthenticateWithCredential(user, credential);
 
-      // Create a credential with the user's email and current password
-      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+    // Re-authentication successful, update the password
+    await updatePassword(user, newPassword);
 
-      // Re-authenticate the user with the credential
-      await reauthenticateWithCredential(user, credential);
-
-      // Re-authentication successful, update the password
-      await updatePassword(user, newPassword);
-
-      return { success: true, message: 'Password updated successfully' };
-    }
-
-    return { success: false, message: 'User is not authenticated' };
+    return { success: true, message: 'Password updated successfully' };
   } catch (error) {
     return { success: false, message: error };
   }

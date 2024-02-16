@@ -13,13 +13,11 @@ export const handleSettingFilters = () => {
     }
 
     tagCategoryListItems.forEach((tagCategoryListItem) => {
-      console.log('list item');
       const category = tagCategoryListItem.getAttribute('data-category');
       const matchingTagListItems = filterTagsByCategory(tagListItems, category);
 
       const filterWrapper = document.createElement('div');
       filterWrapper.classList.add('w-dyn-list', 'jetboost-filter-5813');
-      console.log(filterWrapper);
       const dynList = document.createElement('div');
       dynList.classList.add('w-dyn-items');
       filterWrapper.appendChild(dynList);
@@ -28,7 +26,6 @@ export const handleSettingFilters = () => {
 
       const tagElements = matchingTagListItems.map((tag) => tag.cloneNode(true));
       dynList.append(...tagElements);
-      console.log(dynList);
     });
 
     tagContainer.remove();
