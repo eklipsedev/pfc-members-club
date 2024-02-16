@@ -14,7 +14,9 @@ export const createOrgUser = async (
   userRole
 ) => {
   try {
-    checkPermissions();
+    const canCreateOrgUser = checkPermissions();
+
+    if (!canCreateOrgUser) return;
 
     const createOrgUserFunction = httpsCallable(functions, 'createOrgUser');
 

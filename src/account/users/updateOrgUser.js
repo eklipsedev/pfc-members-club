@@ -14,7 +14,9 @@ export const updateOrgUser = async (
   userRole
 ) => {
   try {
-    checkPermissions();
+    const canUpdateOrgUser = checkPermissions();
+
+    if (!canUpdateOrgUser) return;
 
     try {
       const updateOrgUserFunction = httpsCallable(functions, 'updateOrgUser');

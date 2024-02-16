@@ -31,7 +31,7 @@ export const connectToShopify = async () => {
 
           const { email } = user;
 
-          checkPermissions();
+          const canAccessShopify = checkPermissions();
 
           canadaCheck();
 

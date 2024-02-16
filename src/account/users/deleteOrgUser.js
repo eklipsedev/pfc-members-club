@@ -6,7 +6,9 @@ import { getUsers, setUsers } from './variables';
 
 export const deleteOrgUser = async (userToDeleteId) => {
   try {
-    checkPermissions();
+    const canDeleteOrgUser = checkPermissions();
+
+    if (!canDeleteOrgUser) return;
 
     const deleteOrgUserFunction = httpsCallable(functions, 'deleteOrgUser');
 

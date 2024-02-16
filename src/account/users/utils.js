@@ -51,6 +51,7 @@ export const checkPermissions = () => {
   const canModifyUser = allowedRoles.includes(currentUserRole);
 
   if (!canModifyUser) {
-    throw new Error('User does not have appropriate permissions');
+    return false;
   }
+  return true;
 };

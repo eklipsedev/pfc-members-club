@@ -42,9 +42,12 @@ export const handleSaveProfilePic = () => {
 
       fileInput.addEventListener('change', async (event) => {
         const file = event.target.files[0];
+
         try {
           displayLoader(uploadPicButton, 'Uploading...');
           const result = await saveProfilePic(file);
+
+          console.log(result);
 
           if (result.success) {
             hideLoader(uploadPicButton);
@@ -114,7 +117,7 @@ export const handleSetProfileData = async () => {
       });
     }
 
-    const hasProfilePic = userData.photoURL !== null;
+    const hasProfilePic = userData.photoURL;
 
     if (profilePicElement) {
       profilePicElement.src = hasProfilePic
