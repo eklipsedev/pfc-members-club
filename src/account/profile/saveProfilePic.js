@@ -12,16 +12,19 @@ export const saveProfilePic = async (file) => {
     const storage = getStorage();
     const storageRef = ref(storage, `profile-pictures/${user.uid}`);
 
-    const [downloadURL] = await Promise.all([
-      uploadBytes(storageRef, file),
-      getDownloadURL(storageRef),
-      updateProfile(user, {
-        photoURL: downloadURL,
-      }),
-    ]);
+    // Upload file to storage
+    await uploadBytes(storageRef, file);
+
+    // Get download URL
+    const downloadURL = await getDownloadURL(storageRef);
+
+    // Update user profile with the download URL
+    await updateProfile(user, {
+      photoURL: downloadURL,
+    });
 
     return { success: true, message: 'Profile pic added successfully' };
   } catch (error) {
-    return { success: false, message: error };
+    return { success: false, message: error.message || 'Error saving profile pic' };
   }
 };
