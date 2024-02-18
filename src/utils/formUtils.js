@@ -5,10 +5,10 @@ export const getFormByAttribute = (attributeValue) => {
 let buttonText = '';
 
 export const displayLoader = (button, loadingText) => {
-  const loader = button.querySelector('[data-pfc-loader]');
-  loader.style.display = 'flex';
+  const textElement = button.querySelector("[data-element='text']");
+  const loader = textElement.nextSibling;
 
-  const textElement = button.firstChild;
+  loader.style.display = 'flex';
 
   buttonText = textElement.textContent;
 
@@ -18,10 +18,10 @@ export const displayLoader = (button, loadingText) => {
 };
 
 export const hideLoader = (button) => {
-  const loader = button.querySelector('[data-pfc-loader]');
-  loader.style.display = 'none';
+  const textElement = button.querySelector("[data-element='text']");
+  const loader = textElement.nextSibling;
 
-  const textElement = button.firstChild;
+  loader.style.display = 'none';
 
   textElement.textContent = buttonText;
 };

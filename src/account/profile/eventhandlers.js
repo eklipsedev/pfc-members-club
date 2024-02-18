@@ -31,6 +31,7 @@ const getFormElements = (formAttribute) => {
 
 export const handleSaveProfilePic = () => {
   const uploadPicButton = document.querySelector('[data-pfc-action="upload-profile-image"]');
+  const profileImage = document.querySelector("[data-pfc-member='profile-image']");
 
   if (uploadPicButton) {
     const fileInput = uploadPicButton.nextElementSibling; // should be element right after
@@ -47,7 +48,7 @@ export const handleSaveProfilePic = () => {
           displayLoader(uploadPicButton, 'Uploading...');
           const result = await saveProfilePic(file);
 
-          console.log(result);
+          profileImage.href = result.downloadURL;
 
           if (result.success) {
             hideLoader(uploadPicButton);
