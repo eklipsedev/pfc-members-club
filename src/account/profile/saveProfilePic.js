@@ -6,8 +6,8 @@ import { getUser } from '../../globals';
 import { getUserDocRef } from '../../services/firebase/utils';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
-const TARGET_WIDTH = 64;
-const TARGET_HEIGHT = 64;
+const TARGET_WIDTH = 128;
+const TARGET_HEIGHT = 128; // switched the size of the hieght and width for a larger image
 
 export const saveProfilePic = async (file) => {
   const user = getUser();
